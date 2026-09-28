@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Triage Result — Insurance Claims Triage Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header__inner">
+      <div class="page-header__logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="page-header__title">Claims Triage Assistant</div>
+        <div class="page-header__sub">Insurance Fraud &amp; Priority Analysis</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="page-main">
+
+    <!-- No result guard -->
+    <div id="noResult" class="card" style="display:none;">
+      <h2 class="card__title">No result found</h2>
+      <p class="card__subtitle" style="margin-bottom:20px;">It looks like you navigated here directly. Please submit a claim first.</p>
+      <a href="index.html" class="btn btn--primary">Go to Claim Form</a>
+    </div>
+
+    <!-- Result card -->
+    <div id="resultCard" class="card" style="display:none;">
+
+      <!-- Priority row -->
+      <div class="priority-row">
+        <span class="priority-row__label">Priority Level</span>
+        <span id="priorityBadge" class="badge"></span>
+      </div>
+
+      <!-- Escalation banner -->
+      <div class="result-section">
+        <div class="result-section__label">Escalation</div>
+        <div id="escalationBanner" class="escalation-banner">
+          <div id="escalationHeading" class="escalation-banner__heading"></div>
+          <div id="escalationReason" class="escalation-banner__reason"></div>
+        </div>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Fraud indicators -->
+      <div class="result-section">
+        <div class="result-section__label">Fraud Indicators</div>
+        <div id="fraudIndicators" class="result-section__value"></div>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Recommended actions -->
+      <div class="result-section">
+        <div class="result-section__label">Recommended Actions</div>
+        <div id="recommendedActions" class="result-section__value"></div>
+      </div>
+
+      <hr class="divider" />
+
+      <!-- Back button -->
+      <a href="index.html" class="btn btn--secondary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Analyse Another Claim
+      </a>
+
+    </div>
+  </main>
+
+  <script>
+    const raw = localStorage.getItem('triageResult');
+
+    if (!raw) {
+      document.getElementById('noResult').style.display = '';
+    } else {
+      // Clear from storage so re-visiting shows the guard
+      localStorage.removeItem('triageResult');
+
+      const data = JSON.parse(raw);
+      document.getElementById('resultCard').style.display = '';
+
+      // --- Priority badge ---
+      const badge = document.getElementById('priorityBadge');
+      const level = (data.priority_level || 'ROUTINE').toUpperCase();
+      badge.textContent = level;
+      const levelClass = { ROUTINE: 'badge--routine', URGENT: 'badge--urgent', CRITICAL: 'badge--critical' };
+      badge.classList.add(levelClass[level] || 'badge--routine');
+
+      // --- Escalation banner ---
+      const banner  = document.getElementById('escalationBanner');
+      const heading = document.getElementById('escalationHeading');
+      const reason  = document.getElementById('escalationReason');
+      const required = data.escalate && data.escalate.required;
+
+      if (required) {
+        banner.classList.add('escalation-banner--yes');
+        heading.textContent = '⚠ Escalation Required';
+      } else {
+        banner.classList.add('escalation-banner--no');
+        heading.textContent = '✓ No Escalation Needed';
+      }
+      reason.textContent = (data.escalate && data.escalate.reason) || '';
+
+      // --- Fraud indicators ---
+      const fraudEl = document.getElementById('fraudIndicators');
+      const indicators = data.fraud_indicators || [];
+      if (indicators.length === 0) {
+        fraudEl.innerHTML = '<span class="none-label">None detected</span>';
+      } else {
+        const ul = document.createElement('ul');
+        ul.className = 'fraud-list';
+        indicators.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ul.appendChild(li);
+        });
+        fraudEl.appendChild(ul);
+      }
+
+      // --- Recommended actions ---
+      const actionsEl = document.getElementById('recommendedActions');
+      const actions = data.recommended_actions || [];
+      if (actions.length === 0) {
+        actionsEl.innerHTML = '<span class="none-label">No actions specified.</span>';
+      } else {
+        const ol = document.createElement('ol');
+        ol.className = 'action-list';
+        actions.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = item;
+          ol.appendChild(li);
+        });
+        actionsEl.appendChild(ol);
+      }
+    }
+  </script>
+
+</body>
+</html>

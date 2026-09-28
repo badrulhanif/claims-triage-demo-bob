@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insurance Claims Triage Assistant</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="page-header">
+    <div class="page-header__inner">
+      <div class="page-header__logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="page-header__title">Claims Triage Assistant</div>
+        <div class="page-header__sub">Insurance Fraud &amp; Priority Analysis</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="page-main">
+    <div class="card">
+      <h2 class="card__title">Submit a Claim for Triage</h2>
+      <p class="card__subtitle">Paste a claim summary below or load one of the demo scenarios to see the triage engine in action.</p>
+
+      <form id="triageForm" novalidate>
+
+        <!-- Mock claim loader -->
+        <div class="form-group">
+          <label for="mockSelect">Load a demo scenario</label>
+          <select id="mockSelect">
+            <option value="">— Select a scenario —</option>
+            <optgroup label="🟢 Routine">
+              <option value="routine_collision">Routine — Minor rear-end collision</option>
+              <option value="routine_cycle">Routine — Bicycle theft, single claim</option>
+            </optgroup>
+            <optgroup label="🟠 Urgent">
+              <option value="urgent_highway">Urgent — Multi-vehicle motorway accident</option>
+              <option value="urgent_fire">Urgent — House fire with family displaced</option>
+            </optgroup>
+            <optgroup label="🔴 Critical / Fraud Risk">
+              <option value="fraud_contents">Fraud Risk — Suspicious home contents claim</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <!-- Claim textarea -->
+        <div class="form-group">
+          <label for="claimText">Claim summary</label>
+          <textarea
+            id="claimText"
+            name="claimText"
+            placeholder="Paste the claim description here…"
+            required
+          ></textarea>
+          <p class="hint">Minimum 20 characters. All processing is simulated — no data is stored.</p>
+        </div>
+
+        <!-- Error message -->
+        <p id="errorMsg" style="display:none; color:#991b1b; font-size:13px; margin-bottom:12px;"></p>
+
+        <!-- Submit -->
+        <button type="submit" class="btn btn--primary" id="submitBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          Analyse Claim
+        </button>
+
+        <!-- Spinner -->
+        <div class="spinner-wrap" id="spinnerWrap">
+          <div class="spinner"></div>
+          <span>Analysing claim…</span>
+        </div>
+
+      </form>
+    </div>
+  </main>
+
+  <script>
+    const API_URL = 'http://127.0.0.1:5000/api/triage';
+
+    // Claim texts are embedded directly so they work when opened as a local file://
+    const mockClaims = {
+
+      routine_collision:
+        "Claimant reports a minor rear-end collision that occurred in a supermarket car park on " +
+        "14 March 2024 at approximately 2:30 PM. The claimant's vehicle, a 2019 Ford Focus, " +
+        "sustained superficial bumper damage while stationary. The at-fault driver accepted " +
+        "liability at the scene and a police report was filed (reference: TR-2024-00412). No " +
+        "reported by either party. The claimant has provided photographs of the damage, a copy " +
+        "of the police report, and two independent repair estimates ranging from £620 to £680. " +
+        "This is the claimant's first submitted claim in the past five years. The at-fault " +
+        "driver's insurer has been notified. Repair work can be scheduled at the claimant's convenience.",
+
+      routine_cycle:
+        "Claimant Mr. Aaron Webb reports the theft of his bicycle from a secured communal bike " +
+        "storage area at his apartment block on 2 April 2024. The bicycle, a Specialized Sirrus " +
+        "valued at £480, was secured with a D-lock which was cut. Mr. Webb has provided the " +
+        "original purchase receipt, a photograph of the damaged lock, and a crime reference number " +
+        "from the local police (CR-2024-19847). He is requesting reimbursement under his home " +
+        "contents policy. This is his first claim since taking out the policy three years ago. " +
+        "There are no suspicious circumstances and the claim value is within standard limits.",
+
+      urgent_highway:
+        "Multi-vehicle collision on the M6 motorway southbound on 22 March 2024 at 07:45 AM " +
+        "involving four vehicles during morning rush hour. The claimant, Mr. James Holloway (42), " +
+        "was hospitalised immediately following the incident with a confirmed spinal injury and is " +
+        "currently receiving treatment at Manchester Royal Infirmary. His wife and two children, " +
+        "who were passengers, also sustained minor injuries and are under medical observation. " +
+        "Mr. Holloway is unable to work and the family is facing mounting medical bills and loss " +
+        "of income. The family's solicitor has contacted us requesting an emergency settlement " +
+        "advance to cover immediate medical expenses and household costs. Liability is disputed " +
+        "between two of the other drivers involved. Time-sensitive: medical team advises that " +
+        "rehabilitation decisions must be made within 10 days to avoid long-term complications.",
+
+      urgent_fire:
+        "Claimant Ms. Diane Osei reports a severe house fire that broke out in the kitchen of her " +
+        "semi-detached property on 29 March 2024 at approximately 11:20 PM. The fire spread to the " +
+        "first floor before being extinguished by the fire brigade. Ms. Osei and her two children " +
+        "sustained smoke inhalation injuries and were taken to hospital by ambulance for observation. " +
+        "The property has been deemed uninhabitable by the local authority and the family has been " +
+        "placed in temporary accommodation. Ms. Osei is requesting emergency funds to cover " +
+        "alternative housing costs, replacement clothing, and essential household items. A fire " +
+        "investigation report is pending. This is the claimant's first claim and all documents " +
+        "including the fire brigade report and local authority notice have been submitted.",
+
+      fraud_contents:
+        "Home contents insurance claim submitted on 18 March 2024 by Ms. Patricia Dunne for theft " +
+        "of high-value items including luxury electronics (two MacBook Pro laptops, a 65-inch OLED " +
+        "television) and jewellery (estimated value £12,400). This is the third claim submitted by " +
+        "Ms. Dunne in the past six months — previous claims involved water damage (October 2023) " +
+        "and an earlier theft (January 2024). No witnesses to the alleged break-in were identified. " +
+        "The incident date reported is 15 March 2024, however the submitted purchase receipts for " +
+        "the electronics are dated after the reported theft date, which is inconsistent. Furthermore, " +
+        "the claimant's neighbour, contacted as part of routine verification, disputes the account " +
+        "of events and states they were home all day and noticed nothing unusual. The property shows " +
+        "no signs of forced entry in the loss adjuster's photographs. Claimant has been uncooperative " +
+        "during the follow-up interview.",
+    };
+
+    // Populate textarea when a mock is selected
+    document.getElementById('mockSelect').addEventListener('change', function () {
+      const key = this.value;
+      if (key && mockClaims[key]) {
+        document.getElementById('claimText').value = mockClaims[key];
+        document.getElementById('errorMsg').style.display = 'none';
+      }
+    });
+
+    // Form submit
+    document.getElementById('triageForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+
+      const claimText = document.getElementById('claimText').value.trim();
+      const errorMsg  = document.getElementById('errorMsg');
+      const submitBtn = document.getElementById('submitBtn');
+      const spinnerWrap = document.getElementById('spinnerWrap');
+
+      errorMsg.style.display = 'none';
+
+      if (claimText.length < 20) {
+        errorMsg.textContent = 'Please enter a claim summary of at least 20 characters.';
+        errorMsg.style.display = 'block';
+        return;
+      }
+
+      // Show spinner, hide button
+      submitBtn.style.display = 'none';
+      spinnerWrap.style.display = 'flex';
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ claim_text: claimText }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Server error ${response.status}`);
+        }
+
+        const result = await response.json();
+        localStorage.setItem('triageResult', JSON.stringify(result));
+        window.location.href = 'result.html';
+
+      } catch (err) {
+        errorMsg.textContent = `Error: ${err.message}. Make sure the Flask backend is running on port 5000.`;
+        errorMsg.style.display = 'block';
+        submitBtn.style.display = '';
+        spinnerWrap.style.display = 'none';
+      }
+    });
+  </script>
+
+</body>
+</html>
